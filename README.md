@@ -9,7 +9,7 @@ The official Qualys IaC action always evaluates against the default policy. This
 ## Prerequisites
 
 1. Valid Qualys credentials with a CloudView (CSA) subscription.
-2. Use `actions/checkout@v2` (or later) with `fetch-depth: 0` before this action.
+2. Use `actions/checkout@v4` with `fetch-depth: 0` before this action.
 3. Store `URL`, `USERNAME`, and `PASSWORD` as GitHub Actions secrets.
 4. Self-hosted runners must use Linux with Docker installed.
 
@@ -25,12 +25,13 @@ The `URL` secret must use the **qualysguard** format for your platform:
 | US Platform 4 | `https://qualysguard.qg4.apps.qualys.com` |
 | EU Platform 1 | `https://qualysguard.qualys.eu` |
 | EU Platform 2 | `https://qualysguard.qg2.apps.qualys.eu` |
+| EU Platform 3 (Italy) | `https://qualysguard.qg3.apps.qualys.it` |
 | India Platform | `https://qualysguard.qg1.apps.qualys.in` |
 | Canada Platform | `https://qualysguard.qg1.apps.qualys.ca` |
 | UAE Platform | `https://qualysguard.qg1.apps.qualys.ae` |
 | Australia Platform | `https://qualysguard.qg1.apps.qualys.com.au` |
 | UK Platform | `https://qualysguard.qg1.apps.qualys.co.uk` |
-| KSA Platform | `https://qualysguard.qg1.apps.qualys.sa` |
+| KSA Platform | `https://qualysguard.qg1.apps.qualysksa.com` |
 
 > **Note:** Do not use `gateway` or `qualysapi` URLs. The `qiac` CLI requires the `qualysguard` URL format.
 
