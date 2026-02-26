@@ -1,6 +1,6 @@
 name: 'Qualys IaC Security (Enhanced)'
 author: 'nelssec'
-description: 'Scan IaC templates with Qualys CloudView. Adds policy_name support for custom CSA policy evaluation.'
+description: 'Scan IaC templates with Qualys TotalCloud. Adds policy_name support for custom policy evaluation.'
 branding:
   icon: 'shield'
   color: 'blue'
@@ -10,7 +10,7 @@ inputs:
     default: '.'
     required: false
   policy_name:
-    description: 'Qualys CSA policy name (Build time execution type) to evaluate against. If omitted, the default policy is used.'
+    description: 'Qualys TotalCloud policy name (Build time execution type) to evaluate against. If omitted, the default policy is used.'
     required: false
     default: ''
 

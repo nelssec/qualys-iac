@@ -1,14 +1,14 @@
 # Qualys IaC Security GitHub Action (Enhanced)
 
-Enhanced fork of [Qualys/github_action_qiac](https://github.com/Qualys/github_action_qiac) that adds `policy_name` support for scanning against custom CSA policies.
+Enhanced fork of [Qualys/github_action_qiac](https://github.com/Qualys/github_action_qiac) that adds `policy_name` support for scanning against custom TotalCloud policies.
 
 ## What's Different
 
-The official Qualys IaC action always evaluates against the default policy. This fork exposes the `--policy_name` (`-pn`) flag from the `qiac` CLI, allowing you to specify a custom **Build time** CSA policy by name.
+The official Qualys IaC action always evaluates against the default policy. This fork exposes the `--policy_name` (`-pn`) flag from the `qiac` CLI, allowing you to specify a custom **Build time** TotalCloud policy by name.
 
 ## Prerequisites
 
-1. Valid Qualys credentials with a CloudView (CSA) subscription.
+1. Valid Qualys credentials with a TotalCloud subscription.
 2. Use `actions/checkout@v4` with `fetch-depth: 0` before this action.
 3. Store `URL`, `USERNAME`, and `PASSWORD` as GitHub Actions secrets.
 4. Self-hosted runners must use Linux with Docker installed.
@@ -40,7 +40,7 @@ The `URL` secret must use the **qualysguard** format for your platform:
 | Input | Description | Required | Default |
 |-------|-------------|----------|---------|
 | `directory` | IaC root directory to scan | No | `.` |
-| `policy_name` | Qualys CSA policy name (Build time execution type) | No | _(default policy)_ |
+| `policy_name` | Qualys TotalCloud policy name (Build time execution type) | No | _(default policy)_ |
 
 ## Environment Variables
 
