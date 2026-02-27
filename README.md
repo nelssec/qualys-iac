@@ -41,6 +41,8 @@ The `URL` secret must use the **qualysguard** format for your platform:
 |-------|-------------|----------|---------|
 | `directory` | IaC root directory to scan | No | `.` |
 | `policy_name` | Qualys TotalCloud policy name (Build time execution type) | No | _(default policy)_ |
+| `timeout` | Maximum seconds to wait for scan results | No | `600` (10 min) |
+| `polling_interval` | Seconds between scan status checks (minimum 30) | No | `30` |
 
 ## Environment Variables
 
@@ -158,10 +160,46 @@ jobs:
           sarif_file: response.sarif
 ```
 
+### Custom timeout and polling interval
+
+```yaml
+name: Qualys IaC Scan
+on:
+  push:
+    branches: [main]
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Qualys IaC Scan
+        uses: nelssec/qualys-iac@v1
+        env:
+          URL: ${{ secrets.URL }}
+          UNAME: ${{ secrets.USERNAME }}
+          PASS: ${{ secrets.PASSWORD }}
+        with:
+          timeout: '1800'
+          polling_interval: '60'
+```
+
 ## Supported File Types
 
 - **Terraform:** `.tf`, `.json`
 - **CloudFormation:** `.template`, `.yml`, `.yaml`
+
+## Performance
+
+The scan runs inside a Docker container on the GitHub Actions runner. To reduce scan time:
+
+- **Use a custom policy** with only the controls you need, rather than scanning against the full default policy.
+- **Increase `timeout`** if scans are timing out on large repos (default is 600s / 10 min).
+- **Use larger runners** — GitHub offers [larger hosted runners](https://docs.github.com/en/actions/using-github-hosted-runners/using-larger-runners) for Teams/Enterprise plans. Self-hosted runners can be sized to your needs.
+
+Container resource limits are controlled by the runner, not the action.
 
 ## Important Notes
 

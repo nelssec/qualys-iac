@@ -2,6 +2,8 @@
 
 SCANFOLDER=$1
 POLICY_NAME=$2
+TIMEOUT=$3
+POLLING_INTERVAL=$4
 SOURCE_UUID="8c0ac08e-60ad-4a8a-9571-a2c56514b61a"
 SCANID_STR="Scan launched successfully. Scan ID: "
 
@@ -33,10 +35,17 @@ else
 fi
  #Calling Iac CLI
  echo "Scanning Started at - $(date +"%Y-%m-%d %H:%M:%S")"
+ TIMEOUT_ARGS=""
+ if [ -n "$TIMEOUT" ] && [ "$TIMEOUT" != "600" ]; then
+     TIMEOUT_ARGS="--timeout $TIMEOUT"
+ fi
+ if [ -n "$POLLING_INTERVAL" ] && [ "$POLLING_INTERVAL" != "30" ]; then
+     TIMEOUT_ARGS="$TIMEOUT_ARGS --interval $POLLING_INTERVAL"
+ fi
  if [ -n "$POLICY_NAME" ]; then
-     qiac scan -a $URL -u $UNAME -p $PASS -d $SCANFOLDER -m json -n GitHubActionScan --branch $GITHUB_REF --gitrepo $GITHUB_REPOSITORY --source $SOURCE_UUID -pn "$POLICY_NAME" > /result.json
+     qiac scan -a $URL -u $UNAME -p $PASS -d $SCANFOLDER -m json -n GitHubActionScan --branch $GITHUB_REF --gitrepo $GITHUB_REPOSITORY --source $SOURCE_UUID -pn "$POLICY_NAME" $TIMEOUT_ARGS > /result.json
  else
-     qiac scan -a $URL -u $UNAME -p $PASS -d $SCANFOLDER -m json -n GitHubActionScan --branch $GITHUB_REF --gitrepo $GITHUB_REPOSITORY --source $SOURCE_UUID > /result.json
+     qiac scan -a $URL -u $UNAME -p $PASS -d $SCANFOLDER -m json -n GitHubActionScan --branch $GITHUB_REF --gitrepo $GITHUB_REPOSITORY --source $SOURCE_UUID $TIMEOUT_ARGS > /result.json
  fi
  if [ $? -ne 0 ]; then
     exit 1

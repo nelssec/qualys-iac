@@ -13,6 +13,14 @@ inputs:
     description: 'Qualys TotalCloud policy name (Build time execution type) to evaluate against. If omitted, the default policy is used.'
     required: false
     default: ''
+  timeout:
+    description: 'Maximum time in seconds to wait for scan results before giving up.'
+    required: false
+    default: '600'
+  polling_interval:
+    description: 'Time in seconds between scan status checks. Minimum 30.'
+    required: false
+    default: '30'
 
 runs:
   using: 'docker'
@@ -20,3 +28,5 @@ runs:
   args:
     - ${{ inputs.directory }}
     - ${{ inputs.policy_name }}
+    - ${{ inputs.timeout }}
+    - ${{ inputs.polling_interval }}
