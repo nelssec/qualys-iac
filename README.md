@@ -235,6 +235,34 @@ To check your policy type:
 
 If the policy you need is Runtime-only, create a new Build time policy with the same controls.
 
+### Authentication or connection failures
+
+If the scan fails before launching with an authentication or connection error:
+
+- **Wrong URL format** — the `URL` secret must use the `qualysguard` format (e.g., `https://qualysguard.qg2.apps.qualys.com`). Using `gateway` or `qualysapi` URLs will fail. See the [Platform URLs](#platform-urls) table.
+- **Invalid credentials** — verify `UNAME` and `PASS` secrets are correct and the account is not locked or expired.
+- **Proxy or firewall** — if the runner cannot reach the Qualys platform, check network rules. The `qiac` CLI does not retry on connection failures.
+
+### No files scanned on push or pull request
+
+On `push` and `pull_request` events, only changed or newly added files are scanned. If no supported file types (`.tf`, `.json`, `.template`, `.yml`, `.yaml`) were modified in the commit, the action exits with "There are no files/folders to scan" and produces an empty SARIF result. This is expected behavior.
+
+### Scan completes but no findings reported
+
+If the scan finishes successfully but reports zero findings:
+
+- **Policy scope** — the policy may not include controls relevant to the resources in your templates. Review the policy's control list in TotalCloud.
+- **File types** — only Terraform and CloudFormation files are scanned. Other IaC formats (Ansible, Pulumi, etc.) are not supported.
+- **Directory path** — if using the `directory` input, confirm the path is correct relative to the repo root.
+
+### Docker not available on self-hosted runner
+
+If the workflow fails with a Docker-related error on a self-hosted runner, use the [composite variant](#runners-without-docker) (`nelssec/qualys-iac/composite@v1`) which runs directly on the runner without Docker.
+
+### SARIF upload fails
+
+If the `github/codeql-action/upload-sarif` step fails after the scan, ensure the `response.sarif` file exists in the workspace. The action always generates this file — even when no findings are detected — but if the scan itself crashes, the file may be missing. Use `if: always()` on the upload step to ensure it runs regardless of the scan outcome.
+
 ## Important Notes
 
 - The `policy_name` must **exactly match** an existing policy in your Qualys subscription (case-sensitive).
