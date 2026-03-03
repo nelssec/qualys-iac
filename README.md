@@ -11,7 +11,7 @@ The official Qualys IaC action always evaluates against the default policy. This
 1. Valid Qualys credentials with a TotalCloud subscription.
 2. Use `actions/checkout@v4` with `fetch-depth: 0` before this action.
 3. Store `URL`, `USERNAME`, and `PASSWORD` as GitHub Actions secrets.
-4. Self-hosted runners must use Linux with Docker installed.
+4. Self-hosted runners must use Linux with Docker installed (or use the [composite variant](#runners-without-docker) if Docker is unavailable).
 
 ## Platform URLs
 
@@ -192,6 +192,44 @@ The scan runs inside a Docker container on the GitHub Actions runner. To reduce 
 
 Container resource limits are controlled by the runner, not the action.
 
+## Runners Without Docker
+
+If your self-hosted runners don't have Docker (e.g., Azure private runners), use the **composite variant** which installs Python and the `qiac` CLI directly on the runner — no Docker required:
+
+```yaml
+      - name: Qualys IaC Scan
+        uses: nelssec/qualys-iac/composite@v1
+        env:
+          URL: ${{ secrets.URL }}
+          UNAME: ${{ secrets.USERNAME }}
+          PASS: ${{ secrets.PASSWORD }}
+        with:
+          policy_name: 'Azure Dev MVP'
+```
+
+The composite variant supports all the same inputs (`directory`, `policy_name`, `timeout`, `polling_interval`) plus an optional `python_version` input (default `3.12`).
+
+> **Note:** The composite variant requires the runner to be able to install Python via `actions/setup-python` and pip packages. If the runner has no internet access, you'll need to pre-install Python and the `Qualys-IaC-Security` pip package on the runner image.
+
+## Troubleshooting
+
+### Scan stuck in SUBMITTED
+
+If a scan launches but stays in SUBMITTED until it times out:
+
+```
+The scan status is: SUBMITTED
+Polling timeout of 600 seconds reached.
+```
+
+This means the Qualys backend accepted the scan but never started processing it. Common causes:
+
+- **Empty policy** — the Build time policy has no controls assigned. Open the policy in TotalCloud and verify it contains controls.
+- **No matching controls** — the policy has controls but none apply to the file types in your repo (e.g., Azure controls but only AWS Terraform files).
+- **Qualys backend queue** — transient delay on the Qualys side. Try increasing `timeout` (e.g., `timeout: '1800'`) and retry.
+
+The scan runs server-side on Qualys infrastructure, not on your runner. If the issue persists, contact Qualys support with the Scan ID from the log output.
+
 ## Build Time vs Runtime Policies
 
 The `policy_name` input **only works with Build time policies**. If you pass a Runtime policy name, the scan will fail with:
@@ -216,7 +254,7 @@ If you need to scan against controls from a Runtime policy, create a new **Build
 - The policy must be a **Build time** execution type — Runtime policies will not work (see above).
 - On `push` and `pull_request` events, only changed/added files are scanned.
 - On `schedule` and `workflow_dispatch` events, the entire directory (or repo) is scanned.
-- **Self-hosted runners** must have Linux with Docker installed. Runners without Docker (e.g., some Azure private runners) cannot run this action.
+- **Self-hosted runners** without Docker can use the [composite variant](#runners-without-docker).
 
 ## License
 

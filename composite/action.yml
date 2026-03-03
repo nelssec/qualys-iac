@@ -1,0 +1,113 @@
+name: 'Qualys IaC Security - Composite (No Docker)'
+author: 'nelssec'
+description: 'Scan IaC templates with Qualys TotalCloud. No Docker required — runs directly on the runner via pip.'
+branding:
+  icon: 'shield'
+  color: 'blue'
+inputs:
+  directory:
+    description: 'Directory with infrastructure code to scan'
+    default: '.'
+    required: false
+  policy_name:
+    description: 'Qualys TotalCloud policy name (Build time execution type) to evaluate against. If omitted, the default policy is used.'
+    required: false
+    default: ''
+  timeout:
+    description: 'Maximum time in seconds to wait for scan results before giving up.'
+    required: false
+    default: '600'
+  polling_interval:
+    description: 'Time in seconds between scan status checks. Minimum 30.'
+    required: false
+    default: '30'
+  python_version:
+    description: 'Python version to use.'
+    required: false
+    default: '3.12'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python_version }}
+
+    - name: Install Qualys IaC CLI
+      shell: bash
+      run: pip install --quiet Qualys-IaC-Security
+
+    - name: Run Qualys IaC Scan
+      shell: bash
+      env:
+        INPUT_DIRECTORY: ${{ inputs.directory }}
+        INPUT_POLICY_NAME: ${{ inputs.policy_name }}
+        INPUT_TIMEOUT: ${{ inputs.timeout }}
+        INPUT_POLLING_INTERVAL: ${{ inputs.polling_interval }}
+      run: |
+        SOURCE_UUID="8c0ac08e-60ad-4a8a-9571-a2c56514b61a"
+        SCANID_STR="Scan launched successfully. Scan ID: "
+        SCANFOLDER="${INPUT_DIRECTORY}"
+
+        git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+        echo "Action triggered by $GITHUB_EVENT_NAME event"
+
+        if [ "$GITHUB_EVENT_NAME" = "push" ] || [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            if [ "$(git diff --name-only --diff-filter=ACMRT HEAD^ HEAD | wc -l)" -eq "0" ]; then
+                echo "There are no files/folders to scan."
+                echo '{"version": "2.1.0","runs": [{"tool": {"driver": {"name": "QualysIaCSecurity","organization": "Qualys"}},"results": []}]}' > response.sarif
+                exit 0
+            else
+                echo "From the below files, Only the files with extensions supported by IaC module are included in the scan."
+                git diff --name-only --diff-filter=ACMRT HEAD^ HEAD
+                foldername="qiacscanfolder_$(date +%Y%m%d%H%M%S)"
+                mkdir "$foldername"
+                cp --parents $(git diff --name-only --diff-filter=ACMRT HEAD^ HEAD) "$foldername"
+                SCANFOLDER="$foldername"
+            fi
+        else
+            if [ "$SCANFOLDER" = "." ]; then
+                echo "Scanning entire repository."
+            else
+                echo "Scan Directory Path is - $SCANFOLDER"
+            fi
+        fi
+
+        echo "Scanning Started at - $(date +"%Y-%m-%d %H:%M:%S")"
+
+        TIMEOUT_ARGS=""
+        if [ -n "$INPUT_TIMEOUT" ] && [ "$INPUT_TIMEOUT" != "600" ]; then
+            TIMEOUT_ARGS="--timeout $INPUT_TIMEOUT"
+        fi
+        if [ -n "$INPUT_POLLING_INTERVAL" ] && [ "$INPUT_POLLING_INTERVAL" != "30" ]; then
+            TIMEOUT_ARGS="$TIMEOUT_ARGS --interval $INPUT_POLLING_INTERVAL"
+        fi
+
+        if [ -n "$INPUT_POLICY_NAME" ]; then
+            qiac scan -a "$URL" -u "$UNAME" -p "$PASS" -d "$SCANFOLDER" -m json -n GitHubActionScan --branch "$GITHUB_REF" --gitrepo "$GITHUB_REPOSITORY" --source "$SOURCE_UUID" -pn "$INPUT_POLICY_NAME" $TIMEOUT_ARGS > result.json
+        else
+            qiac scan -a "$URL" -u "$UNAME" -p "$PASS" -d "$SCANFOLDER" -m json -n GitHubActionScan --branch "$GITHUB_REF" --gitrepo "$GITHUB_REPOSITORY" --source "$SOURCE_UUID" $TIMEOUT_ARGS > result.json
+        fi
+
+        LEN=${#SCANID_STR}
+        let "LEN+=1"
+        SCAN_ID="$(grep "$SCANID_STR" result.json | cut -c $LEN-)"
+
+        if [ -n "$SCAN_ID" ]; then
+            echo "Scan ID:" "$SCAN_ID"
+            qiac getresult -a "$URL" -u "$UNAME" -p "$PASS" -i "$SCAN_ID" -m SARIF -s > raw_result.sarif
+        fi
+
+        if ls scan_response_*.sarif 1>/dev/null 2>&1; then
+            mv scan_response_*.sarif response.sarif
+            chmod 755 response.sarif
+        else
+            echo '{"version": "2.1.0","runs": [{"tool": {"driver": {"name": "QualysIaCSecurity","organization": "Qualys"}},"results": []}]}' > response.sarif
+        fi
+
+        echo "Scanning Completed at - $(date +"%Y-%m-%d %H:%M:%S")"
+        echo ""
+        echo "SCAN RESULT"
+        python "${{ github.action_path }}/../resultParser.py" result.json
