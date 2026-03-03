@@ -101,7 +101,7 @@ jobs:
           UNAME: ${{ secrets.USERNAME }}
           PASS: ${{ secrets.PASSWORD }}
         with:
-          policy_name: 'Azure Dev MVP'
+          policy_name: 'Azure Dev Best Practices'
 ```
 
 > **Note:** The policy name must match a **Build time** policy exactly. Runtime policies will not work. See [Build Time vs Runtime Policies](#build-time-vs-runtime-policies).
@@ -204,7 +204,7 @@ If your self-hosted runners don't have Docker (e.g., Azure private runners), use
           UNAME: ${{ secrets.USERNAME }}
           PASS: ${{ secrets.PASSWORD }}
         with:
-          policy_name: 'Azure Dev MVP'
+          policy_name: 'Azure Dev Best Practices'
 ```
 
 The composite variant supports all the same inputs (`directory`, `policy_name`, `timeout`, `polling_interval`) plus an optional `python_version` input (default `3.12`).
