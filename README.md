@@ -78,21 +78,9 @@ jobs:
           PASS: ${{ secrets.PASSWORD }}
 ```
 
-### Scan with a custom policy
+### Scan with a custom policy (AWS)
 
 ```yaml
-name: Qualys IaC Scan
-on:
-  push:
-    branches: [main]
-jobs:
-  scan:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
       - name: Qualys IaC Scan
         uses: nelssec/qualys-iac@v1
         env:
@@ -103,21 +91,24 @@ jobs:
           policy_name: 'AWS DISA STIG Build Controls'
 ```
 
+### Scan with a custom policy (Azure)
+
+```yaml
+      - name: Qualys IaC Scan
+        uses: nelssec/qualys-iac@v1
+        env:
+          URL: ${{ secrets.URL }}
+          UNAME: ${{ secrets.USERNAME }}
+          PASS: ${{ secrets.PASSWORD }}
+        with:
+          policy_name: 'Azure Dev MVP'
+```
+
+> **Note:** The policy name must match a **Build time** policy exactly. Runtime policies will not work. See [Build Time vs Runtime Policies](#build-time-vs-runtime-policies).
+
 ### Scan a specific directory with custom policy
 
 ```yaml
-name: Qualys IaC Scan
-on:
-  pull_request:
-    branches: [main]
-jobs:
-  scan:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
       - name: Qualys IaC Scan
         uses: nelssec/qualys-iac@v1
         env:
@@ -151,7 +142,7 @@ jobs:
           UNAME: ${{ secrets.USERNAME }}
           PASS: ${{ secrets.PASSWORD }}
         with:
-          policy_name: 'AWS DISA STIG Build Controls'
+          policy_name: 'Azure CIS Build Controls'
 
       - name: Upload SARIF file
         uses: github/codeql-action/upload-sarif@v3
@@ -201,12 +192,31 @@ The scan runs inside a Docker container on the GitHub Actions runner. To reduce 
 
 Container resource limits are controlled by the runner, not the action.
 
+## Build Time vs Runtime Policies
+
+The `policy_name` input **only works with Build time policies**. If you pass a Runtime policy name, the scan will fail with:
+
+```
+The API request failed :
+{"errorCode":"NOT_FOUND",
+ "message":"There is no build time policy with title 'Your Policy Name'."}
+```
+
+To verify your policy type in the Qualys portal:
+
+1. Navigate to **TotalCloud** > **Policies**
+2. Check the **Execution Type** column
+3. Only policies marked **Build time** can be used with this action
+
+If you need to scan against controls from a Runtime policy, create a new **Build time** policy in TotalCloud with the same controls.
+
 ## Important Notes
 
-- The `policy_name` must **exactly match** an existing policy in your Qualys subscription.
-- The policy must be a **Build time** execution type.
+- The `policy_name` must **exactly match** an existing policy in your Qualys subscription (case-sensitive).
+- The policy must be a **Build time** execution type — Runtime policies will not work (see above).
 - On `push` and `pull_request` events, only changed/added files are scanned.
 - On `schedule` and `workflow_dispatch` events, the entire directory (or repo) is scanned.
+- **Self-hosted runners** must have Linux with Docker installed. Runners without Docker (e.g., some Azure private runners) cannot run this action.
 
 ## License
 
