@@ -213,40 +213,27 @@ The composite variant supports all the same inputs (`directory`, `policy_name`, 
 
 ## Troubleshooting
 
-### Scan stuck in SUBMITTED
+### Scan does not progress past SUBMITTED
 
-If a scan launches but stays in SUBMITTED until it times out:
+If the scan is accepted but the status never advances beyond SUBMITTED before the polling timeout expires, the issue is on the Qualys platform side — scan processing happens server-side, not on your runner. Check the following:
 
-```
-The scan status is: SUBMITTED
-Polling timeout of 600 seconds reached.
-```
+- **Policy has no controls** — verify the Build time policy contains at least one control in TotalCloud.
+- **Control/file type mismatch** — ensure the policy includes controls relevant to your IaC templates (e.g., an Azure-only policy won't evaluate AWS Terraform files).
+- **Platform processing delay** — occasionally the backend queue is slow. Increase `timeout` and retry.
 
-This means the Qualys backend accepted the scan but never started processing it. Common causes:
+If the problem continues, provide the Scan ID from the workflow logs when contacting Qualys support.
 
-- **Empty policy** — the Build time policy has no controls assigned. Open the policy in TotalCloud and verify it contains controls.
-- **No matching controls** — the policy has controls but none apply to the file types in your repo (e.g., Azure controls but only AWS Terraform files).
-- **Qualys backend queue** — transient delay on the Qualys side. Try increasing `timeout` (e.g., `timeout: '1800'`) and retry.
+### Policy not found error
 
-The scan runs server-side on Qualys infrastructure, not on your runner. If the issue persists, contact Qualys support with the Scan ID from the log output.
+If the scan fails immediately with a `NOT_FOUND` error, the policy name either doesn't exist or is not a **Build time** policy. Only Build time policies can be used with IaC scanning — Runtime policies are not supported.
 
-## Build Time vs Runtime Policies
+To check your policy type:
 
-The `policy_name` input **only works with Build time policies**. If you pass a Runtime policy name, the scan will fail with:
+1. Open **TotalCloud** > **Policies** in the Qualys portal
+2. Look at the **Execution Type** column
+3. Confirm the policy is marked **Build time**
 
-```
-The API request failed :
-{"errorCode":"NOT_FOUND",
- "message":"There is no build time policy with title 'Your Policy Name'."}
-```
-
-To verify your policy type in the Qualys portal:
-
-1. Navigate to **TotalCloud** > **Policies**
-2. Check the **Execution Type** column
-3. Only policies marked **Build time** can be used with this action
-
-If you need to scan against controls from a Runtime policy, create a new **Build time** policy in TotalCloud with the same controls.
+If the policy you need is Runtime-only, create a new Build time policy with the same controls.
 
 ## Important Notes
 
