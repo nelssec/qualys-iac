@@ -43,6 +43,10 @@ The `URL` secret must use the **qualysguard** format for your platform:
 | `policy_name` | Qualys TotalCloud policy name (Build time execution type) | No | _(default policy)_ |
 | `timeout` | Maximum seconds to wait for scan results | No | `600` (10 min) |
 | `polling_interval` | Seconds between scan status checks (minimum 30) | No | `30` |
+| `max_critical` | Max CRITICAL findings allowed before failing the build | No | _(unlimited)_ |
+| `max_high` | Max HIGH findings allowed before failing the build | No | _(unlimited)_ |
+| `max_medium` | Max MEDIUM findings allowed before failing the build | No | _(unlimited)_ |
+| `max_low` | Max LOW findings allowed before failing the build | No | _(unlimited)_ |
 
 ## Environment Variables
 
@@ -176,6 +180,25 @@ jobs:
           timeout: '1800'
           polling_interval: '60'
 ```
+
+### Severity thresholds (quality gate)
+
+Fail the build only when findings exceed specific limits. For example, block on any critical findings but allow up to 5 high:
+
+```yaml
+      - name: Qualys IaC Scan
+        uses: nelssec/qualys-iac@v1
+        env:
+          URL: ${{ secrets.URL }}
+          UNAME: ${{ secrets.USERNAME }}
+          PASS: ${{ secrets.PASSWORD }}
+        with:
+          policy_name: 'Azure Dev Best Practices'
+          max_critical: '0'
+          max_high: '5'
+```
+
+When a threshold is exceeded, the output includes a severity summary and the specific threshold that was breached. Thresholds left empty are unlimited — only the levels you set are enforced.
 
 ## Supported File Types
 

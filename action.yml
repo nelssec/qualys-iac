@@ -21,6 +21,22 @@ inputs:
     description: 'Time in seconds between scan status checks. Minimum 30.'
     required: false
     default: '30'
+  max_critical:
+    description: 'Maximum number of CRITICAL findings allowed before failing the build. Leave empty for no limit.'
+    required: false
+    default: ''
+  max_high:
+    description: 'Maximum number of HIGH findings allowed before failing the build. Leave empty for no limit.'
+    required: false
+    default: ''
+  max_medium:
+    description: 'Maximum number of MEDIUM findings allowed before failing the build. Leave empty for no limit.'
+    required: false
+    default: ''
+  max_low:
+    description: 'Maximum number of LOW findings allowed before failing the build. Leave empty for no limit.'
+    required: false
+    default: ''
 
 runs:
   using: 'docker'

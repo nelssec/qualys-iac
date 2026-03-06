@@ -1,6 +1,6 @@
 import sys, json, os
 
-def print_error_message(result):
+def print_error_message(result, severity_counts):
     error_message = ""
     failed_checks = False
     if result.get("results").get("parsingErrors"):
@@ -9,6 +9,8 @@ def print_error_message(result):
     if result.get("results").get("failedChecks"):
         for r in result.get("results").get("failedChecks"):
             line_range = "None"
+            criticality = (r.get("criticality") or "UNKNOWN").upper()
+            severity_counts[criticality] = severity_counts.get(criticality, 0) + 1
             keys = ["filePath", "checkId", "checkName", "criticality", "remediation"]
             keys_names = ["File Name", "Qualys CID", "Control Name", "Criticality", "Remediation"]
             error_message += "::error::"
@@ -26,12 +28,56 @@ def print_error_message(result):
     return failed_checks
 
 
+def get_threshold(name):
+    value = os.getenv("INPUT_" + name, "")
+    if value == "":
+        return None
+    try:
+        return int(value)
+    except ValueError:
+        return None
+
+
+def check_severity_thresholds(severity_counts):
+    thresholds = {
+        "CRITICAL": get_threshold("MAX_CRITICAL"),
+        "HIGH": get_threshold("MAX_HIGH"),
+        "MEDIUM": get_threshold("MAX_MEDIUM"),
+        "LOW": get_threshold("MAX_LOW"),
+    }
+    exceeded = []
+    for level, max_allowed in thresholds.items():
+        if max_allowed is not None:
+            count = severity_counts.get(level, 0)
+            if count > max_allowed:
+                exceeded.append((level, count, max_allowed))
+    return exceeded
+
+
 def print_failed_checks(output):
     if output.get("status") != "FINISHED":
         exit(-1)
     failed_checks = False
+    severity_counts = {}
     for result in output.get("result"):
-        failed_checks = print_error_message(result)
+        failed_checks = print_error_message(result, severity_counts)
+
+    if severity_counts:
+        print("")
+        print("SEVERITY SUMMARY")
+        for level in ["CRITICAL", "HIGH", "MEDIUM", "LOW"]:
+            count = severity_counts.get(level, 0)
+            if count > 0:
+                print("  " + level + ": " + str(count))
+
+    exceeded = check_severity_thresholds(severity_counts)
+    if exceeded:
+        print("")
+        for level, count, max_allowed in exceeded:
+            print("::error::Threshold exceeded: " + str(count) + " " + level + " findings (max allowed: " + str(max_allowed) + ")")
+        print("Pipeline status will be - Failed")
+        exit(-1)
+
     failBuild = os.getenv("failBuild", "true").lower() == "true"
     if failed_checks:
         if failBuild :

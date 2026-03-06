@@ -21,6 +21,22 @@ inputs:
     description: 'Time in seconds between scan status checks. Minimum 30.'
     required: false
     default: '30'
+  max_critical:
+    description: 'Maximum number of CRITICAL findings allowed before failing the build. Leave empty for no limit.'
+    required: false
+    default: ''
+  max_high:
+    description: 'Maximum number of HIGH findings allowed before failing the build. Leave empty for no limit.'
+    required: false
+    default: ''
+  max_medium:
+    description: 'Maximum number of MEDIUM findings allowed before failing the build. Leave empty for no limit.'
+    required: false
+    default: ''
+  max_low:
+    description: 'Maximum number of LOW findings allowed before failing the build. Leave empty for no limit.'
+    required: false
+    default: ''
   python_version:
     description: 'Python version to use.'
     required: false
@@ -45,6 +61,10 @@ runs:
         INPUT_POLICY_NAME: ${{ inputs.policy_name }}
         INPUT_TIMEOUT: ${{ inputs.timeout }}
         INPUT_POLLING_INTERVAL: ${{ inputs.polling_interval }}
+        INPUT_MAX_CRITICAL: ${{ inputs.max_critical }}
+        INPUT_MAX_HIGH: ${{ inputs.max_high }}
+        INPUT_MAX_MEDIUM: ${{ inputs.max_medium }}
+        INPUT_MAX_LOW: ${{ inputs.max_low }}
       run: |
         SOURCE_UUID="8c0ac08e-60ad-4a8a-9571-a2c56514b61a"
         SCANID_STR="Scan launched successfully. Scan ID: "
