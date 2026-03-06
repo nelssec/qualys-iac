@@ -70,21 +70,29 @@ def print_failed_checks(output):
             if count > 0:
                 print("  " + level + ": " + str(count))
 
-    exceeded = check_severity_thresholds(severity_counts)
-    if exceeded:
-        print("")
-        for level, count, max_allowed in exceeded:
-            print("::error::Threshold exceeded: " + str(count) + " " + level + " findings (max allowed: " + str(max_allowed) + ")")
-        print("Pipeline status will be - Failed")
-        exit(-1)
+    thresholds_configured = any(
+        get_threshold(t) is not None
+        for t in ["MAX_CRITICAL", "MAX_HIGH", "MAX_MEDIUM", "MAX_LOW"]
+    )
 
-    failBuild = os.getenv("failBuild", "true").lower() == "true"
-    if failed_checks:
-        if failBuild :
+    if thresholds_configured:
+        exceeded = check_severity_thresholds(severity_counts)
+        if exceeded:
+            print("")
+            for level, count, max_allowed in exceeded:
+                print("::error::Threshold exceeded: " + str(count) + " " + level + " findings (max allowed: " + str(max_allowed) + ")")
             print("Pipeline status will be - Failed")
             exit(-1)
         else:
-            print("Pipeline status will be - Successful")
+            print("Pipeline status will be - Successful (all findings within thresholds)")
+    else:
+        failBuild = os.getenv("failBuild", "true").lower() == "true"
+        if failed_checks:
+            if failBuild :
+                print("Pipeline status will be - Failed")
+                exit(-1)
+            else:
+                print("Pipeline status will be - Successful")
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
