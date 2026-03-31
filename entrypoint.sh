@@ -43,14 +43,15 @@ fi
  if [ -n "$POLLING_INTERVAL" ] && [ "$POLLING_INTERVAL" != "30" ]; then
      EXTRA_ARGS="$EXTRA_ARGS --interval $POLLING_INTERVAL"
  fi
- if [ -n "$POLICY_NAME" ]; then
-     EXTRA_ARGS="$EXTRA_ARGS -pn \"$POLICY_NAME\""
- fi
  AUTHTYPE_UPPER=$(echo "$AUTHTYPE" | tr '[:lower:]' '[:upper:]')
  if [ "$AUTHTYPE_UPPER" = "OIDC" ]; then
      EXTRA_ARGS="$EXTRA_ARGS -at OIDC"
  fi
- qiac scan -a $URL -u $UNAME -p $PASS -d $SCANFOLDER -m json -n GitHubActionScan --tag [{\"BRANCH_NAME\":\"$GITHUB_REF\"},{\"REPOSITORY_NAME\":\"$GITHUB_REPOSITORY\"}] $EXTRA_ARGS > /result.json
+ if [ -n "$POLICY_NAME" ]; then
+     qiac scan -a $URL -u $UNAME -p $PASS -d $SCANFOLDER -m json -n GitHubActionScan --tag [{\"BRANCH_NAME\":\"$GITHUB_REF\"},{\"REPOSITORY_NAME\":\"$GITHUB_REPOSITORY\"}] -pn "$POLICY_NAME" $EXTRA_ARGS > /result.json
+ else
+     qiac scan -a $URL -u $UNAME -p $PASS -d $SCANFOLDER -m json -n GitHubActionScan --tag [{\"BRANCH_NAME\":\"$GITHUB_REF\"},{\"REPOSITORY_NAME\":\"$GITHUB_REPOSITORY\"}] $EXTRA_ARGS > /result.json
+ fi
  if [ $? -ne 0 ]; then
     exit 1
  fi
