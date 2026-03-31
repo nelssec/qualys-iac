@@ -66,7 +66,6 @@ runs:
         INPUT_MAX_MEDIUM: ${{ inputs.max_medium }}
         INPUT_MAX_LOW: ${{ inputs.max_low }}
       run: |
-        SOURCE_UUID="8c0ac08e-60ad-4a8a-9571-a2c56514b61a"
         SCANID_STR="Scan launched successfully. Scan ID: "
         SCANFOLDER="${INPUT_DIRECTORY}"
 
@@ -84,7 +83,9 @@ runs:
                 git diff --name-only --diff-filter=ACMRT HEAD^ HEAD
                 foldername="qiacscanfolder_$(date +%Y%m%d%H%M%S)"
                 mkdir "$foldername"
-                cp --parents $(git diff --name-only --diff-filter=ACMRT HEAD^ HEAD) "$foldername"
+                git diff --name-only --diff-filter=ACMRT HEAD^ HEAD | while IFS= read -r file; do
+                    cp --parents "$file" "$foldername"
+                done
                 SCANFOLDER="$foldername"
             fi
         else
@@ -97,19 +98,22 @@ runs:
 
         echo "Scanning Started at - $(date +"%Y-%m-%d %H:%M:%S")"
 
-        TIMEOUT_ARGS=""
+        EXTRA_ARGS=""
         if [ -n "$INPUT_TIMEOUT" ] && [ "$INPUT_TIMEOUT" != "600" ]; then
-            TIMEOUT_ARGS="--timeout $INPUT_TIMEOUT"
+            EXTRA_ARGS="--timeout $INPUT_TIMEOUT"
         fi
         if [ -n "$INPUT_POLLING_INTERVAL" ] && [ "$INPUT_POLLING_INTERVAL" != "30" ]; then
-            TIMEOUT_ARGS="$TIMEOUT_ARGS --interval $INPUT_POLLING_INTERVAL"
+            EXTRA_ARGS="$EXTRA_ARGS --interval $INPUT_POLLING_INTERVAL"
+        fi
+        if [ -n "$INPUT_POLICY_NAME" ]; then
+            EXTRA_ARGS="$EXTRA_ARGS -pn \"$INPUT_POLICY_NAME\""
+        fi
+        AUTHTYPE_UPPER=$(echo "$AUTHTYPE" | tr '[:lower:]' '[:upper:]')
+        if [ "$AUTHTYPE_UPPER" = "OIDC" ]; then
+            EXTRA_ARGS="$EXTRA_ARGS -at OIDC"
         fi
 
-        if [ -n "$INPUT_POLICY_NAME" ]; then
-            qiac scan -a "$URL" -u "$UNAME" -p "$PASS" -d "$SCANFOLDER" -m json -n GitHubActionScan --branch "$GITHUB_REF" --gitrepo "$GITHUB_REPOSITORY" --source "$SOURCE_UUID" -pn "$INPUT_POLICY_NAME" $TIMEOUT_ARGS > result.json
-        else
-            qiac scan -a "$URL" -u "$UNAME" -p "$PASS" -d "$SCANFOLDER" -m json -n GitHubActionScan --branch "$GITHUB_REF" --gitrepo "$GITHUB_REPOSITORY" --source "$SOURCE_UUID" $TIMEOUT_ARGS > result.json
-        fi
+        qiac scan -a "$URL" -u "$UNAME" -p "$PASS" -d "$SCANFOLDER" -m json -n GitHubActionScan --tag [{\"BRANCH_NAME\":\"$GITHUB_REF\"},{\"REPOSITORY_NAME\":\"$GITHUB_REPOSITORY\"}] $EXTRA_ARGS > result.json
 
         LEN=${#SCANID_STR}
         let "LEN+=1"
@@ -117,7 +121,11 @@ runs:
 
         if [ -n "$SCAN_ID" ]; then
             echo "Scan ID:" "$SCAN_ID"
-            qiac getresult -a "$URL" -u "$UNAME" -p "$PASS" -i "$SCAN_ID" -m SARIF -s > raw_result.sarif
+            if [ "$AUTHTYPE_UPPER" = "OIDC" ]; then
+                qiac getresult -a "$URL" -u "$UNAME" -p "$PASS" -i "$SCAN_ID" -m SARIF -s -at OIDC > raw_result.sarif
+            else
+                qiac getresult -a "$URL" -u "$UNAME" -p "$PASS" -i "$SCAN_ID" -m SARIF -s > raw_result.sarif
+            fi
         fi
 
         if ls scan_response_*.sarif 1>/dev/null 2>&1; then

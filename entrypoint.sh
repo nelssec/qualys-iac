@@ -4,7 +4,6 @@ SCANFOLDER=$1
 POLICY_NAME=$2
 TIMEOUT=$3
 POLLING_INTERVAL=$4
-SOURCE_UUID="8c0ac08e-60ad-4a8a-9571-a2c56514b61a"
 SCANID_STR="Scan launched successfully. Scan ID: "
 
 git config --global --add safe.directory "$GITHUB_WORKSPACE"
@@ -21,8 +20,10 @@ then
         echo "From the below files, Only the files with extensions supported by IaC module are included in the scan."
         git diff --name-only --diff-filter=ACMRT HEAD^ HEAD
         foldername="qiacscanfolder_$(date +%Y%m%d%H%M%S)"
-        mkdir $foldername
-        cp --parents $(git diff --name-only --diff-filter=ACMRT HEAD^ HEAD) $foldername
+        mkdir "$foldername"
+        git diff --name-only --diff-filter=ACMRT HEAD^ HEAD | while IFS= read -r file; do
+            cp --parents "$file" "$foldername"
+        done
         SCANFOLDER=$foldername
     fi
 else
@@ -35,18 +36,21 @@ else
 fi
  #Calling Iac CLI
  echo "Scanning Started at - $(date +"%Y-%m-%d %H:%M:%S")"
- TIMEOUT_ARGS=""
+ EXTRA_ARGS=""
  if [ -n "$TIMEOUT" ] && [ "$TIMEOUT" != "600" ]; then
-     TIMEOUT_ARGS="--timeout $TIMEOUT"
+     EXTRA_ARGS="--timeout $TIMEOUT"
  fi
  if [ -n "$POLLING_INTERVAL" ] && [ "$POLLING_INTERVAL" != "30" ]; then
-     TIMEOUT_ARGS="$TIMEOUT_ARGS --interval $POLLING_INTERVAL"
+     EXTRA_ARGS="$EXTRA_ARGS --interval $POLLING_INTERVAL"
  fi
  if [ -n "$POLICY_NAME" ]; then
-     qiac scan -a $URL -u $UNAME -p $PASS -d $SCANFOLDER -m json -n GitHubActionScan --branch $GITHUB_REF --gitrepo $GITHUB_REPOSITORY --source $SOURCE_UUID -pn "$POLICY_NAME" $TIMEOUT_ARGS > /result.json
- else
-     qiac scan -a $URL -u $UNAME -p $PASS -d $SCANFOLDER -m json -n GitHubActionScan --branch $GITHUB_REF --gitrepo $GITHUB_REPOSITORY --source $SOURCE_UUID $TIMEOUT_ARGS > /result.json
+     EXTRA_ARGS="$EXTRA_ARGS -pn \"$POLICY_NAME\""
  fi
+ AUTHTYPE_UPPER=$(echo "$AUTHTYPE" | tr '[:lower:]' '[:upper:]')
+ if [ "$AUTHTYPE_UPPER" = "OIDC" ]; then
+     EXTRA_ARGS="$EXTRA_ARGS -at OIDC"
+ fi
+ qiac scan -a $URL -u $UNAME -p $PASS -d $SCANFOLDER -m json -n GitHubActionScan --tag [{\"BRANCH_NAME\":\"$GITHUB_REF\"},{\"REPOSITORY_NAME\":\"$GITHUB_REPOSITORY\"}] $EXTRA_ARGS > /result.json
  if [ $? -ne 0 ]; then
     exit 1
  fi
@@ -58,7 +62,11 @@ fi
  if [[ ! -z "$SCAN_ID" ]]
  then
     echo "Scan ID:" $SCAN_ID
-    qiac getresult -a $URL -u $UNAME -p $PASS -i $SCAN_ID -m SARIF -s > /raw_result.sarif
+    if [ "$AUTHTYPE_UPPER" = "OIDC" ]; then
+       qiac getresult -a $URL -u $UNAME -p $PASS -i $SCAN_ID -m SARIF -s -at OIDC > /raw_result.sarif
+    else
+       qiac getresult -a $URL -u $UNAME -p $PASS -i $SCAN_ID -m SARIF -s > /raw_result.sarif
+    fi
  fi
 
  if [ -f scan_response_*.sarif ]; then
