@@ -4,6 +4,7 @@ SCANFOLDER=$1
 POLICY_NAME=$2
 TIMEOUT=$3
 POLLING_INTERVAL=$4
+SOURCE_ID=$5
 SCANID_STR="Scan launched successfully. Scan ID: "
 
 git config --global --add safe.directory "$GITHUB_WORKSPACE"
@@ -42,6 +43,9 @@ fi
  fi
  if [ -n "$POLLING_INTERVAL" ] && [ "$POLLING_INTERVAL" != "30" ]; then
      EXTRA_ARGS="$EXTRA_ARGS --interval $POLLING_INTERVAL"
+ fi
+ if [ -n "$SOURCE_ID" ]; then
+     EXTRA_ARGS="$EXTRA_ARGS --source $SOURCE_ID"
  fi
  AUTHTYPE_UPPER=$(echo "$AUTHTYPE" | tr '[:lower:]' '[:upper:]')
  if [ "$AUTHTYPE_UPPER" = "OIDC" ]; then

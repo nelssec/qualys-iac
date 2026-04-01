@@ -43,6 +43,7 @@ The `URL` secret must use the **qualysguard** format for your platform:
 | `policy_name` | Qualys TotalCloud policy name (Build time execution type) | No | _(default policy)_ |
 | `timeout` | Maximum seconds to wait for scan results | No | `600` (10 min) |
 | `polling_interval` | Seconds between scan status checks (minimum 30) | No | `30` |
+| `source_id` | TotalCloud source connector UUID — links scans to a source in the Qualys portal | No | _(none)_ |
 | `max_critical` | Max CRITICAL findings allowed before failing the build | No | _(unlimited)_ |
 | `max_high` | Max HIGH findings allowed before failing the build | No | _(unlimited)_ |
 | `max_medium` | Max MEDIUM findings allowed before failing the build | No | _(unlimited)_ |
