@@ -41,6 +41,10 @@ inputs:
     description: 'Maximum number of LOW findings allowed before failing the build. Leave empty for no limit.'
     required: false
     default: ''
+  auth_type:
+    description: 'Authentication type: "basic" (username/password) or "oidc" (Client ID/Client Secret via Qualys Managed Tokens or external IdP).'
+    required: false
+    default: 'basic'
 
 runs:
   using: 'docker'
@@ -51,3 +55,4 @@ runs:
     - ${{ inputs.timeout }}
     - ${{ inputs.polling_interval }}
     - ${{ inputs.source_id }}
+    - ${{ inputs.auth_type }}
