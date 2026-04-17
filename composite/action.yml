@@ -41,6 +41,10 @@ inputs:
     description: 'Maximum number of LOW findings allowed before failing the build. Leave empty for no limit.'
     required: false
     default: ''
+  auth_type:
+    description: 'Authentication type: "basic" (username/password) or "oidc" (Client ID/Client Secret via Qualys Managed Tokens or external IdP).'
+    required: false
+    default: 'basic'
   python_version:
     description: 'Python version to use.'
     required: false
@@ -70,21 +74,62 @@ runs:
         INPUT_MAX_HIGH: ${{ inputs.max_high }}
         INPUT_MAX_MEDIUM: ${{ inputs.max_medium }}
         INPUT_MAX_LOW: ${{ inputs.max_low }}
+        INPUT_AUTH_TYPE: ${{ inputs.auth_type }}
       run: |
         SCANID_STR="Scan launched successfully. Scan ID: "
         SCANFOLDER="${INPUT_DIRECTORY}"
 
         git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
-        echo "Action triggered by $GITHUB_EVENT_NAME event"
+        # --- Auth resolution ---
+        AUTH_TYPE_UPPER=$(echo "$INPUT_AUTH_TYPE" | tr '[:lower:]' '[:upper:]')
+        AUTHTYPE_UPPER=$(echo "$AUTHTYPE" | tr '[:lower:]' '[:upper:]')
+        OIDC_FLAG=""
+
+        if [ "$AUTH_TYPE_UPPER" = "OIDC" ] || [ "$AUTHTYPE_UPPER" = "OIDC" ]; then
+            if [ -n "$CLIENTID" ]; then
+                UNAME=$CLIENTID
+            fi
+            if [ -n "$CLIENTSECRET" ]; then
+                PASS=$CLIENTSECRET
+            fi
+            if [ -z "$UNAME" ]; then
+                echo "[ERROR] CLIENTID (or UNAME) is required for OIDC authentication."
+                exit 1
+            fi
+            if [ -z "$PASS" ]; then
+                echo "[ERROR] CLIENTSECRET (or PASS) is required for OIDC authentication."
+                exit 1
+            fi
+            OIDC_FLAG="-at OIDC"
+        else
+            if [ -z "$UNAME" ]; then
+                echo "[ERROR] UNAME is required for basic authentication."
+                exit 1
+            fi
+            if [ -z "$PASS" ]; then
+                echo "[ERROR] PASS is required for basic authentication."
+                exit 1
+            fi
+        fi
+
+        if [ -z "$URL" ]; then
+            echo "[ERROR] URL is required. See the Platform URLs table in the README."
+            exit 1
+        fi
+
+        # --- Event handling ---
+        echo "[INFO] Action triggered by $GITHUB_EVENT_NAME event"
+        echo "[INFO] GITHUB_REF: ${GITHUB_REF}"
+        echo "[INFO] GITHUB_REPOSITORY: ${GITHUB_REPOSITORY}"
 
         if [ "$GITHUB_EVENT_NAME" = "push" ] || [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
             if [ "$(git diff --name-only --diff-filter=ACMRT HEAD^ HEAD | wc -l)" -eq "0" ]; then
-                echo "There are no files/folders to scan."
+                echo "[INFO] There are no files/folders to scan."
                 echo '{"version": "2.1.0","runs": [{"tool": {"driver": {"name": "QualysIaCSecurity","organization": "Qualys"}},"results": []}]}' > response.sarif
                 exit 0
             else
-                echo "From the below files, Only the files with extensions supported by IaC module are included in the scan."
+                echo "[INFO] From the below files, only the files with extensions supported by IaC module are included in the scan."
                 git diff --name-only --diff-filter=ACMRT HEAD^ HEAD
                 foldername="qiacscanfolder_$(date +%Y%m%d%H%M%S)"
                 mkdir "$foldername"
@@ -95,13 +140,14 @@ runs:
             fi
         else
             if [ "$SCANFOLDER" = "." ]; then
-                echo "Scanning entire repository."
+                echo "[INFO] Scanning entire repository."
             else
-                echo "Scan Directory Path is - $SCANFOLDER"
+                echo "[INFO] Scan Directory Path is - $SCANFOLDER"
             fi
         fi
 
-        echo "Scanning Started at - $(date +"%Y-%m-%d %H:%M:%S")"
+        # --- Build CLI args ---
+        echo "[INFO] Scanning Started at - $(date +"%Y-%m-%d %H:%M:%S")"
 
         EXTRA_ARGS=""
         if [ -n "$INPUT_TIMEOUT" ] && [ "$INPUT_TIMEOUT" != "600" ]; then
@@ -113,9 +159,8 @@ runs:
         if [ -n "$INPUT_SOURCE_ID" ]; then
             EXTRA_ARGS="$EXTRA_ARGS --source $INPUT_SOURCE_ID"
         fi
-        AUTHTYPE_UPPER=$(echo "$AUTHTYPE" | tr '[:lower:]' '[:upper:]')
-        if [ "$AUTHTYPE_UPPER" = "OIDC" ]; then
-            EXTRA_ARGS="$EXTRA_ARGS -at OIDC"
+        if [ -n "$OIDC_FLAG" ]; then
+            EXTRA_ARGS="$EXTRA_ARGS $OIDC_FLAG"
         fi
 
         if [ -n "$INPUT_POLICY_NAME" ]; then
@@ -129,8 +174,8 @@ runs:
         SCAN_ID="$(grep "$SCANID_STR" result.json | cut -c $LEN-)"
 
         if [ -n "$SCAN_ID" ]; then
-            echo "Scan ID:" "$SCAN_ID"
-            if [ "$AUTHTYPE_UPPER" = "OIDC" ]; then
+            echo "[INFO] Scan ID:" "$SCAN_ID"
+            if [ -n "$OIDC_FLAG" ]; then
                 qiac getresult -a "$URL" -u "$UNAME" -p "$PASS" -i "$SCAN_ID" -m SARIF -s -at OIDC > raw_result.sarif
             else
                 qiac getresult -a "$URL" -u "$UNAME" -p "$PASS" -i "$SCAN_ID" -m SARIF -s > raw_result.sarif
@@ -144,7 +189,7 @@ runs:
             echo '{"version": "2.1.0","runs": [{"tool": {"driver": {"name": "QualysIaCSecurity","organization": "Qualys"}},"results": []}]}' > response.sarif
         fi
 
-        echo "Scanning Completed at - $(date +"%Y-%m-%d %H:%M:%S")"
+        echo "[INFO] Scanning Completed at - $(date +"%Y-%m-%d %H:%M:%S")"
         echo ""
         echo "SCAN RESULT"
         python "${{ github.action_path }}/../resultParser.py" result.json
