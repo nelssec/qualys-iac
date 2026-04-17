@@ -8,9 +8,9 @@ The official Qualys IaC action always evaluates against the default policy. This
 
 ## Prerequisites
 
-1. Valid Qualys credentials with a TotalCloud subscription.
+1. Valid Qualys credentials (username/password or OIDC Client ID/Secret) with a TotalCloud subscription.
 2. Use `actions/checkout@v4` with `fetch-depth: 0` before this action.
-3. Store `URL`, `USERNAME`, and `PASSWORD` as GitHub Actions secrets.
+3. Store credentials as GitHub Actions secrets: `URL` plus either `USERNAME`/`PASSWORD` (basic auth) or `QUALYS_CLIENT_ID`/`QUALYS_CLIENT_SECRET` (OIDC auth).
 4. Self-hosted runners must use Linux with Docker installed (or use the [composite variant](#runners-without-docker) if Docker is unavailable).
 
 ## Platform URLs
@@ -48,15 +48,75 @@ The `URL` secret must use the **qualysguard** format for your platform:
 | `max_high` | Max HIGH findings allowed before failing the build | No | _(unlimited)_ |
 | `max_medium` | Max MEDIUM findings allowed before failing the build | No | _(unlimited)_ |
 | `max_low` | Max LOW findings allowed before failing the build | No | _(unlimited)_ |
+| `auth_type` | Authentication type: `basic` or `oidc` | No | `basic` |
 
 ## Environment Variables
 
 | Variable | Description | Required |
 |----------|-------------|----------|
 | `URL` | Qualys platform URL (see table above) | Yes |
-| `UNAME` | Qualys username | Yes |
-| `PASS` | Qualys password | Yes |
+| `UNAME` | Qualys username | Yes (basic auth) |
+| `PASS` | Qualys password | Yes (basic auth) |
+| `CLIENTID` | Qualys Client ID | Yes (OIDC auth) |
+| `CLIENTSECRET` | Qualys Client Secret | Yes (OIDC auth) |
 | `failBuild` | Set to `false` to always pass the workflow regardless of findings | No (default: `true`) |
+
+## Authentication
+
+### Basic Auth (default)
+
+The default authentication uses a Qualys username and password. Store them as GitHub Actions secrets and pass them as environment variables:
+
+```yaml
+      env:
+        URL: ${{ secrets.URL }}
+        UNAME: ${{ secrets.USERNAME }}
+        PASS: ${{ secrets.PASSWORD }}
+```
+
+### OIDC Auth
+
+OIDC authentication uses a Client ID and Client Secret instead of a username and password. The `qiac` CLI exchanges these for a short-lived JWT token automatically. Set `auth_type` to `oidc` and provide `CLIENTID` and `CLIENTSECRET` as environment variables:
+
+```yaml
+      - name: Qualys IaC Scan
+        uses: nelssec/qualys-iac@v1
+        env:
+          URL: ${{ secrets.URL }}
+          CLIENTID: ${{ secrets.QUALYS_CLIENT_ID }}
+          CLIENTSECRET: ${{ secrets.QUALYS_CLIENT_SECRET }}
+        with:
+          auth_type: 'oidc'
+          policy_name: 'AWS DISA STIG Build Controls'
+```
+
+#### Qualys Managed Tokens (recommended for CI/CD)
+
+The simplest way to get a Client ID and Client Secret is through Qualys Managed Tokens. No external Identity Provider is needed.
+
+1. Log in to the Qualys portal (requires UI 4.0)
+2. Click the User icon > **View Profile**
+3. Open the **Auth ID Client Management** section
+4. Select the **Subscription Level** tab (recommended for CI/CD — not tied to a specific user)
+5. Click **New Client**
+6. Enter a name (e.g., "GitHub Actions IaC Scanning")
+7. Assign permissions for the TotalCloud module
+8. Click **Create** and copy the **Client Secret** (shown only once)
+9. Copy the **Client ID** from the client list
+10. Store both as GitHub Actions secrets (`QUALYS_CLIENT_ID` and `QUALYS_CLIENT_SECRET`)
+
+Subscription-level clients support granular per-module permissions and are not invalidated when individual user accounts are deactivated, making them ideal for CI/CD pipelines.
+
+#### External Identity Provider (Okta, Azure AD)
+
+If your organization uses an external IdP, you can configure OIDC through Qualys Support:
+
+1. Contact Qualys Support to request OIDC activation
+2. Provide your IdP details: Entity ID, SSO URL, and signing certificates (or JWKS URL)
+3. Once enabled (~1 week), you receive a Client ID and Client Secret
+4. Use them the same way as Qualys Managed Tokens above
+
+Supported IdPs include **Okta** and **Microsoft Entra (Azure AD)**. See the [Qualys OIDC documentation](https://docs.qualys.com/en/edr/latest/mergedProjects/edr_api/mergedProjects/subscription_info_api_guide/oauth/oauth_oidc.htm) for details.
 
 ## Usage Examples
 
@@ -231,7 +291,7 @@ If your self-hosted runners don't have Docker (e.g., Azure private runners), use
           policy_name: 'Azure Dev Best Practices'
 ```
 
-The composite variant supports all the same inputs (`directory`, `policy_name`, `timeout`, `polling_interval`) plus an optional `python_version` input (default `3.12`).
+The composite variant supports all the same inputs (`directory`, `policy_name`, `timeout`, `polling_interval`, `auth_type`) plus an optional `python_version` input (default `3.12`).
 
 > **Note:** The composite variant requires the runner to be able to install Python via `actions/setup-python` and pip packages. If the runner has no internet access, you'll need to pre-install Python and the `Qualys-IaC-Security` pip package on the runner image.
 
@@ -264,7 +324,11 @@ If the policy you need is Runtime-only, create a new Build time policy with the 
 If the scan fails before launching with an authentication or connection error:
 
 - **Wrong URL format** — the `URL` secret must use the `qualysguard` format (e.g., `https://qualysguard.qg2.apps.qualys.com`). Using `gateway` or `qualysapi` URLs will fail. See the [Platform URLs](#platform-urls) table.
-- **Invalid credentials** — verify `UNAME` and `PASS` secrets are correct and the account is not locked or expired.
+- **Invalid credentials** — for basic auth, verify `UNAME` and `PASS` secrets are correct and the account is not locked or expired. For OIDC auth, verify `CLIENTID` and `CLIENTSECRET` are correct.
+- **OIDC token errors** — if using `auth_type: 'oidc'`:
+  - **400 Invalid Signature** — the Client Secret may be incorrect, or JWKS certificates are out of sync. Regenerate the client credentials in the Qualys portal.
+  - **401 Invalid Token** — the JWT token has expired or is malformed. This usually means the Client ID or Client Secret is wrong.
+  - **403 Permission Denied** — the OIDC client does not have sufficient permissions. Verify the client has TotalCloud module access in Auth ID Client Management.
 - **Proxy or firewall** — if the runner cannot reach the Qualys platform, check network rules. The `qiac` CLI does not retry on connection failures.
 
 ### No files scanned on push or pull request
