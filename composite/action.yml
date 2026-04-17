@@ -21,10 +21,6 @@ inputs:
     description: 'Time in seconds between scan status checks. Minimum 30.'
     required: false
     default: '30'
-  source_id:
-    description: 'Qualys TotalCloud source connector UUID. Links scan results to a source in the Qualys portal.'
-    required: false
-    default: ''
   max_critical:
     description: 'Maximum number of CRITICAL findings allowed before failing the build. Leave empty for no limit.'
     required: false
@@ -69,7 +65,6 @@ runs:
         INPUT_POLICY_NAME: ${{ inputs.policy_name }}
         INPUT_TIMEOUT: ${{ inputs.timeout }}
         INPUT_POLLING_INTERVAL: ${{ inputs.polling_interval }}
-        INPUT_SOURCE_ID: ${{ inputs.source_id }}
         INPUT_MAX_CRITICAL: ${{ inputs.max_critical }}
         INPUT_MAX_HIGH: ${{ inputs.max_high }}
         INPUT_MAX_MEDIUM: ${{ inputs.max_medium }}
@@ -155,9 +150,6 @@ runs:
         fi
         if [ -n "$INPUT_POLLING_INTERVAL" ] && [ "$INPUT_POLLING_INTERVAL" != "30" ]; then
             EXTRA_ARGS="$EXTRA_ARGS --interval $INPUT_POLLING_INTERVAL"
-        fi
-        if [ -n "$INPUT_SOURCE_ID" ]; then
-            EXTRA_ARGS="$EXTRA_ARGS --source $INPUT_SOURCE_ID"
         fi
         if [ -n "$OIDC_FLAG" ]; then
             EXTRA_ARGS="$EXTRA_ARGS $OIDC_FLAG"
